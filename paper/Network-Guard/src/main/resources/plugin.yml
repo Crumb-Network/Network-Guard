@@ -1,0 +1,4 @@
+name: Network-Guard
+version: '1.0.0'
+main: me.kalbskinder.networkGuard.NetworkGuard
+api-version: '1.21'
