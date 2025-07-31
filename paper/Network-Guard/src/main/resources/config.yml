@@ -1,0 +1,43 @@
+mysql:
+  host: "localhost"
+  port: 3306
+  database: "network_guard"
+  username: "root"
+  password: "password123"
+  useSSL: false
+
+# %duration% - The time until the ban expires
+# %username% - The players username
+# %reason% - The reason for the ban
+# %issuer% - The player who banned the other player
+ban-message:
+  - "<dark_red>You have been banned!"
+  - "<red>Ban issued by: <yellow>%issuer%"
+  - "<red>Expires in: <yellow>%time%"
+  - "<red>Ban reason: <yellow>%reason%"
+  - ""
+  - "<red>You may appeal on our discord if you were wrongly banned."
+  - "<aqua>{LINK-TO-DISCORD-OR-WEBSITE}"
+
+# %username% - The players username
+# %reason% - The reason for the ban
+# %issuer% - The player who banned the other player
+perm-ban-message:
+  - "<dark_red>You have been banned permanently!"
+  - "<red>Ban issued by: <yellow>%issuer%"
+  - "<red>Ban length: <yellow>%time%"
+  - ""
+  - "<red>You may appeal on our discord if your ban is permanent"
+  - "<aqua>{LINK-TO-DISCORD-OR-WEBSITE}"
+
+# %duration% - The time until the ban expires
+# %username% - The players username
+# %reason% - The reason for the ban
+# %issuer% - The player who banned the other player
+mute-message:
+  - "<red><st>                                                                   "
+  - "<red>You are currently muted for %reason%."
+  - "<gray>Your mute will expire in <yellow>%duration%"
+  - ""
+  - "<gray>Find out more here: {LINK-TO-DISCORD-OR-WEBSITE}"
+  - "<red><st>                                                                   "

@@ -2,3 +2,13 @@ name: Network-Guard
 version: '1.0.0'
 main: me.kalbskinder.networkGuard.NetworkGuard
 api-version: '1.21'
+author: "Kalbskinder"
+commands:
+  ban:
+    description: Ban a player
+    usage: /ban <player> <duration> <reason>
+
+
+permissions:
+  nwguard.ban:
+    default: op
