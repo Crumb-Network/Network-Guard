@@ -15,67 +15,51 @@ import org.slf4j.Logger;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 
-public class PlayerJoinListener  {
+public class PlayerJoinListener {
     private final DatabaseManager db = NetworkGuard.getDatabaseManager();
     private final Logger logger = NetworkGuard.getLogger();
     private final MiniMessage mm = MiniMessage.miniMessage();
-    private final List<UUID> bannedPlayers = new ArrayList<>(); // Store all banned players in cache
-
-    // Load all currently banned players uuids
-    public PlayerJoinListener() {
-        try (PreparedStatement stmt = db.getConnection().prepareStatement(
-                "SELECT uuid FROM bans"
-        )) {
-            try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                    bannedPlayers.add(UUID.fromString(rs.getString("uuid")));
-                }
-            }
-        } catch (SQLException ex) {
-            logger.error("Failed to load banned players");
-        }
-    }
 
     @Subscribe
     public void onLogin(LoginEvent event) {
         Player player = event.getPlayer();
-        // Check if the player is banned
-        if (!bannedPlayers.contains(player.getUniqueId())) return;
+        UUID uuid = player.getUniqueId();
+        String playerName = player.getUsername();
 
-        // Get ban information and disconnect player
         try (PreparedStatement stmt = db.getConnection().prepareStatement(
-                "SELECT reason, expires_at, banned_by, username FROM bans WHERE uuid = ?;")) {
-            stmt.setString(1, player.getUniqueId().toString());
+                "SELECT `reason`, `expires_at`, `banned_by`, `name` FROM bans WHERE `uuid` = ?;")) {
+            stmt.setString(1, uuid.toString());
 
             try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    long expiresAt = rs.getLong("expires_at");
-                    String reason = rs.getString("reason");
-                    String bannedBy = rs.getString("banned_by");
-                    String username = rs.getString("username");
+                if (!rs.next()) {
+                    return;
+                }
 
-                    if (System.currentTimeMillis() < expiresAt) {
-                        // Deny player join with custom ban message
-                        event.setResult(ResultedEvent.ComponentResult.denied(
-                                ConfigManager.banMessage(username, reason, bannedBy, TimeUtil.formatDuration(expiresAt - System.currentTimeMillis()))
-                        ));
-                    } else {
-                        try (PreparedStatement deleteStmt = db.getConnection().prepareStatement(
-                                "DELETE FROM bans WHERE uuid = ?;")) {
-                            deleteStmt.setString(1, player.getUniqueId().toString());
-                            deleteStmt.executeUpdate();
-                        }
+                long expiresAt = rs.getLong("expires_at");
+                String reason = rs.getString("reason");
+                String bannedBy = rs.getString("banned_by");
+                String name = rs.getString("name");
+
+                if (expiresAt == 0 || System.currentTimeMillis() < expiresAt) {
+                    String duration = expiresAt == 0 ? "permanent" : TimeUtil.formatDuration(expiresAt - System.currentTimeMillis());
+                    event.setResult(ResultedEvent.ComponentResult.denied(
+                            ConfigManager.banMessage(name, reason, bannedBy, duration)
+                    ));
+                } else {
+                    try (PreparedStatement deleteStmt = db.getConnection().prepareStatement(
+                            "DELETE FROM bans WHERE `uuid` = ?;")) {
+                        deleteStmt.setString(1, uuid.toString());
+                        deleteStmt.executeUpdate();
                     }
                 }
             }
         } catch (SQLException e) {
-            logger.error("Failed to handle {} while joining the proxy. They were kicked.", player.getGameProfile().getName());
-            event.setResult(ResultedEvent.ComponentResult.denied(mm.deserialize("<red>[Network-Guard] Failed to authenticate user.")));
+            logger.error("Failed to handle player {} (UUID: {}) while joining the proxy: {}", playerName, uuid, e.getMessage(), e);
+            event.setResult(ResultedEvent.ComponentResult.denied(
+                    mm.deserialize("<red>[Network-Guard] Failed to authenticate user.")
+            ));
         }
     }
-
 }

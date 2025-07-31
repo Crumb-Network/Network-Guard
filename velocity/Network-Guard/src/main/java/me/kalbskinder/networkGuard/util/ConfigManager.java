@@ -18,7 +18,7 @@ public class ConfigManager {
                 message.replace("%username%", username)
                         .replace("%reason%", reason)
                         .replace("%issuer%", issuer)
-                        .replace("%duration%", duration)
+                        .replace("%time%", duration)
         );
     }
 
@@ -29,7 +29,7 @@ public class ConfigManager {
                 message.replace("%username%", username)
                         .replace("%reason%", reason)
                         .replace("%issuer%", issuer)
-                        .replace("%duration%", duration)
+                        .replace("%time%", duration)
         );
     }
 }
