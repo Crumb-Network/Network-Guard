@@ -7,6 +7,7 @@ import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import me.kalbskinder.networkGuard.commands.BanCommand;
 import me.kalbskinder.networkGuard.commands.MainCommand;
+import me.kalbskinder.networkGuard.commands.UnbanCommand;
 import me.kalbskinder.networkGuard.database.DatabaseManager;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandMap;
@@ -53,6 +54,9 @@ public final class NetworkGuard extends JavaPlugin {
 
             MainCommand mainCommand = new MainCommand();
             commands.register(mainCommand.getCommand().build(), "Main plugin command");
+
+            UnbanCommand unbanCommand = new UnbanCommand();
+            commands.register(unbanCommand.getCommand().build(), "Unban a player from the server");
         });
     }
 
@@ -63,6 +67,9 @@ public final class NetworkGuard extends JavaPlugin {
     @Override
     public void onDisable() {
         // Plugin shutdown logic
+        if (databaseManager != null) {
+            databaseManager.close();
+        }
     }
 
     public static NetworkGuard getInstance() {
