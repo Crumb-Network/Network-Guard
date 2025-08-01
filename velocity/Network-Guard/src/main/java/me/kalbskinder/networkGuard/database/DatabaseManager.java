@@ -54,6 +54,13 @@ public class DatabaseManager {
                 );
             """);
 
+            stmt.executeUpdate("""
+                CREATE TABLE IF NOT EXISTS staff_levels (
+                    uuid VARCHAR(36) PRIMARY KEY,
+                    permission_level INTEGER NOT NULL
+                );
+            """);
+
             logger.info("Database tables created or already exist.");
         } catch (SQLException e) {
             logger.error("Failed to create tables in the database", e);

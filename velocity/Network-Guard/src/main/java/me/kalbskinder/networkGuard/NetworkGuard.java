@@ -3,6 +3,7 @@ package me.kalbskinder.networkGuard;
 import com.google.inject.Inject;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
+import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.ProxyServer;
@@ -90,6 +91,18 @@ public class NetworkGuard {
         this.dataDirectory = dataDirectory;
         this.proxy = proxy;
         NetworkGuard.logger = logger;
+    }
+
+    @Subscribe
+    public void onDisable(ProxyShutdownEvent event) {
+        if (databaseManager != null) {
+            try {
+                databaseManager.getConnection().close();
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        logger.info("NetworkGuard disabled successfully.");
     }
 
     private final Path dataDirectory;
