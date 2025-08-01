@@ -35,9 +35,9 @@ perm-ban-message:
 # %reason% - The reason for the ban
 # %issuer% - The player who banned the other player
 mute-message:
-  - "<red><st>                                                                   "
+  - "<red><st>                                                                   <reset>"
   - "<red>You are currently muted for %reason%."
   - "<gray>Your mute will expire in <yellow>%duration%"
   - ""
-  - "<gray>Find out more here: {LINK-TO-DISCORD-OR-WEBSITE}"
-  - "<red><st>                                                                   "
+  - "<gray>Find out more here: <aqua>{LINK-TO-DISCORD-OR-WEBSITE}"
+  - "<red><st>                                                                   <reset>"

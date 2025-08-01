@@ -8,9 +8,7 @@ import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import me.kalbskinder.networkGuard.NetworkGuard;
 import me.kalbskinder.networkGuard.database.DatabaseManager;
-import me.kalbskinder.networkGuard.util.ConfigManager;
 import me.kalbskinder.networkGuard.util.TimeUtil;
-import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -24,15 +22,15 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
-public class BanCommand {
+public class MuteCommand {
     private static final DatabaseManager db = NetworkGuard.getDatabaseManager();
     private final MiniMessage mm = MiniMessage.miniMessage();
-    private final List<String> DURATIONS = Arrays.asList("1h", "24h", "30d", "365d");
-    private final List<String> REASONS = Arrays.asList("Hacking", "Griefing", "Toxicity", "Spamming", "Advertising");
+    private final List<String> DURATIONS = Arrays.asList("1h", "24h", "30d", "365d", "permanent");
+    private final List<String> REASONS = Arrays.asList("Toxicity", "Spamming", "Advertising");
 
     public LiteralArgumentBuilder<CommandSourceStack> getCommand() {
-        return Commands.literal("ban")
-                .requires(source -> source.getExecutor() != null && source.getExecutor().hasPermission("nwguard.ban"))
+        return Commands.literal("mute")
+                .requires(source -> source.getExecutor() != null && source.getExecutor().hasPermission("nwguard.mute"))
                 .then(Commands.argument("player", StringArgumentType.word())
                         .suggests((context, builder) -> {
                             Bukkit.getOnlinePlayers().forEach(player -> builder.suggest(player.getName()));
@@ -48,19 +46,19 @@ public class BanCommand {
                                             REASONS.forEach(builder::suggest);
                                             return builder.buildFuture();
                                         })
-                                        .executes(ctx -> executeBan(ctx, true, true))
+                                        .executes(ctx -> executeMute(ctx, true, true))
                                 )
-                                .executes(ctx -> executeBan(ctx, true, false))
+                                .executes(ctx -> executeMute(ctx, true, false))
                         )
-                        .executes(ctx -> executeBan(ctx, false, false))
+                        .executes(ctx -> executeMute(ctx, false, false))
                 )
                 .executes(ctx -> {
-                    ctx.getSource().getSender().sendMessage(mm.deserialize("<yellow>Usage: /ban <player> [duration] [reason]"));
+                    ctx.getSource().getSender().sendMessage(mm.deserialize("<yellow>Usage: /mute <player> [duration] [reason]"));
                     return 0;
                 });
     }
 
-    private int executeBan(CommandContext<CommandSourceStack> ctx, boolean hasDuration, boolean hasReason) {
+    private int executeMute(CommandContext<CommandSourceStack> ctx, boolean hasDuration, boolean hasReason) {
         CommandSender source = ctx.getSource().getSender();
         String playerName = StringArgumentType.getString(ctx, "player");
 
@@ -77,47 +75,47 @@ public class BanCommand {
 
         if (source instanceof Player playerSource) {
             int sourceLevel = getPermissionLevel(playerSource.getUniqueId());
-            int targetLevel = getPermissionLevel(targetUUID); // Auch für Offline-Spieler
+            int targetLevel = getPermissionLevel(targetUUID);
             if (sourceLevel <= targetLevel) {
-                source.sendMessage(mm.deserialize("<red>You cannot ban a player with equal or higher permission level!"));
+                source.sendMessage(mm.deserialize("<red>You cannot mute a player with equal or higher permission level!"));
                 return 0;
             }
         }
 
         String actorName = source instanceof Player p ? p.getName() : "Console";
-        banPlayer(targetUUID, playerName, reason, actorName, TimeUtil.parseDuration(duration));
 
-        Player onlineTarget = Bukkit.getPlayer(targetUUID);
-        if (onlineTarget != null) {
-            Component banMessage = ConfigManager.banMessage(playerName, reason, actorName, duration);
-            onlineTarget.kick(banMessage);
-        }
+        mutePlayer(targetUUID, playerName, reason, actorName, TimeUtil.parseDuration(duration));
 
-        source.sendMessage(mm.deserialize("<green>Successfully banned " + playerName + "."));
+        source.sendMessage(mm.deserialize(
+                "<green>Player <yellow>" + playerName + "<green> has been muted for <yellow>" + duration +
+                        "<green>. Reason: <yellow>" + reason
+        ));
+
         return Command.SINGLE_SUCCESS;
     }
 
 
-
-    private static void banPlayer(UUID uuid, String name, String reason, String bannedBy, long durationMillis) {
+    private void mutePlayer(UUID uuid, String name, String reason, String mutedBy, long durationMillis) {
         try (PreparedStatement stmt = db.getConnection().prepareStatement(
-                "REPLACE INTO bans (uuid, name, reason, banned_by, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?);")) {
+                "REPLACE INTO mutes (uuid, name, reason, muted_by, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?);")) {
             stmt.setString(1, uuid.toString());
             stmt.setString(2, name);
             stmt.setString(3, reason);
-            stmt.setString(4, bannedBy);
-            stmt.setLong(5, System.currentTimeMillis() + durationMillis);
+            stmt.setString(4, mutedBy);
+            stmt.setLong(5, durationMillis == 0 ? 0 : System.currentTimeMillis() + durationMillis);
             stmt.setLong(6, System.currentTimeMillis());
             stmt.executeUpdate();
+            // Update cache
+            NetworkGuard.getMuteCache().put(uuid, durationMillis == 0 ? 0L : System.currentTimeMillis() + durationMillis);
         } catch (SQLException e) {
-            System.err.println("Failed to ban player " + name + ": " + e.getMessage());
+            System.err.println("Failed to mute player " + name + ": " + e.getMessage());
             e.printStackTrace();
         }
     }
 
     private static int getPermissionLevel(UUID uuid) {
         try (PreparedStatement stmt = db.getConnection().prepareStatement(
-                "SELECT `permission_level` FROM staff_levels WHERE `uuid` = ?;")) {
+                "SELECT permission_level FROM staff_levels WHERE uuid = ?;")) {
             stmt.setString(1, uuid.toString());
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {

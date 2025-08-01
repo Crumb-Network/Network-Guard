@@ -9,6 +9,10 @@ public class TimeUtil {
         Matcher matcher = pattern.matcher(input);
         long millis = 0;
 
+        if (input.equalsIgnoreCase("permanent")) {
+            return 0; // Permanent mute
+        }
+
         while (matcher.find()) {
             int value = Integer.parseInt(matcher.group(1));
             switch (matcher.group(2)) {
@@ -22,6 +26,10 @@ public class TimeUtil {
     }
 
     public static String formatDuration(long millis) {
+        if (millis == 0) {
+            return "permanent";
+        }
+
         long seconds = millis / 1000;
 
         long days = seconds / 86400;

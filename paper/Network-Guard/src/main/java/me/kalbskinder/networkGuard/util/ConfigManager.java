@@ -21,4 +21,15 @@ public class ConfigManager {
                         .replace("%time%", duration)
         );
     }
+
+    public static Component muteMessage(String username, String reason, String issuer, String duration) {
+        List<String> lines = config.getStringList("mute-message");
+        String message = String.join("<newline>", lines);
+        return mm.deserialize(
+                message.replace("%username%", username)
+                        .replace("%reason%", reason)
+                        .replace("%issuer%", issuer)
+                        .replace("%duration%", duration)
+        );
+    }
 }
