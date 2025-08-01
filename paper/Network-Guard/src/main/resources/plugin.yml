@@ -11,11 +11,18 @@ commands:
     description: Ban a player
     usage: /ban <player> <duration> <reason>
 
-
 permissions:
   nwguard.ban:
+    description: Allows banning players
+    default: op
+  nwguard.unban:
+    description: Allows unbanning players
+    default: op
+  nwguard.mute:
+    description: Allows muting players
     default: op
   nwguard.help:
+    description: Allows access to the help command
     default: op
   nwguard.showpermissions:
     description: Allows viewing staff permission levels
