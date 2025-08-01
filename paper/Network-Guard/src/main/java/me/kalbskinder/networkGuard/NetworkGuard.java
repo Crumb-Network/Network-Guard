@@ -1,10 +1,12 @@
 package me.kalbskinder.networkGuard;
 
+import com.sun.tools.javac.Main;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEvent;
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import me.kalbskinder.networkGuard.commands.BanCommand;
+import me.kalbskinder.networkGuard.commands.MainCommand;
 import me.kalbskinder.networkGuard.database.DatabaseManager;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandMap;
@@ -48,6 +50,9 @@ public final class NetworkGuard extends JavaPlugin {
             final Commands commands = event.registrar();
             BanCommand banCommand = new BanCommand();
             commands.register(banCommand.getCommand().build(), "Ban a player from the server");
+
+            MainCommand mainCommand = new MainCommand();
+            commands.register(mainCommand.getCommand().build(), "Main plugin command");
         });
     }
 

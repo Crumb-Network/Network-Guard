@@ -4,6 +4,9 @@ main: me.kalbskinder.networkGuard.NetworkGuard
 api-version: '1.21'
 author: "Kalbskinder"
 commands:
+  network-guard:
+    description: Main plugin command
+    usage: /network-guard <args>
   ban:
     description: Ban a player
     usage: /ban <player> <duration> <reason>
@@ -11,4 +14,12 @@ commands:
 
 permissions:
   nwguard.ban:
+    default: op
+  nwguard.help:
+    default: op
+  nwguard.showpermissions:
+    description: Allows viewing staff permission levels
+    default: op
+  nwguard.setpermission:
+    description: Allows setting staff permission levels
     default: op

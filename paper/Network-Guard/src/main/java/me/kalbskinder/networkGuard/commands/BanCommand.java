@@ -16,6 +16,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
@@ -24,8 +25,6 @@ import java.util.UUID;
 public class BanCommand {
     private static final DatabaseManager db = NetworkGuard.getDatabaseManager();
     private final MiniMessage mm = MiniMessage.miniMessage();
-
-    // Command suggestions
     private final List<String> DURATIONS = Arrays.asList("1h", "24h", "30d", "365d");
     private final List<String> REASONS = Arrays.asList("Hacking", "Griefing", "Toxicity", "Spamming", "Advertising");
 
@@ -57,19 +56,28 @@ public class BanCommand {
 
     private int executeBan(com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx) {
         CommandSender source = ctx.getSource().getSender();
-
         String playerName = StringArgumentType.getString(ctx, "player");
         String duration = ctx.getArgument("duration", String.class) != null
                 ? StringArgumentType.getString(ctx, "duration")
-                : "30d"; // Default duration if not specified
+                : "30d";
         String reason = ctx.getArgument("reason", String.class) != null
                 ? StringArgumentType.getString(ctx, "reason")
-                : "No reason specified"; // Default reason if not specified
+                : "No reason specified";
 
         Player target = Bukkit.getPlayerExact(playerName);
         if (target == null) {
             source.sendMessage(mm.deserialize("<red>Player not found!"));
             return 0;
+        }
+
+        // Skip permission level check for Console
+        if (source instanceof Player playerSource) {
+            int sourceLevel = getPermissionLevel(playerSource.getUniqueId());
+            int targetLevel = getPermissionLevel(target.getUniqueId());
+            if (sourceLevel <= targetLevel) {
+                source.sendMessage(mm.deserialize("<red>You cannot ban a player with equal or higher permission level!"));
+                return 0;
+            }
         }
 
         String actorName = source instanceof Player playerSource
@@ -83,19 +91,24 @@ public class BanCommand {
         return Command.SINGLE_SUCCESS;
     }
 
-    private static void banPlayer(UUID uuid, String name, String reason, String bannedBy, long durationMillis) {
-        System.out.println("Banning player " + name);
+    private int getPermissionLevel(UUID uuid) {
         try (PreparedStatement stmt = db.getConnection().prepareStatement(
-                "DELETE FROM bans WHERE uuid = ?"
-        )) {
+                "SELECT `permission_level` FROM staff_levels WHERE `uuid` = ?;")) {
             stmt.setString(1, uuid.toString());
-            stmt.executeUpdate();
-        } catch (SQLException ex) {
-            ex.printStackTrace();
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("permission_level");
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
+        return 0; // Default level for players not in staff_levels
+    }
 
+    private static void banPlayer(UUID uuid, String name, String reason, String bannedBy, long durationMillis) {
         try (PreparedStatement stmt = db.getConnection().prepareStatement(
-                "INSERT INTO bans (uuid, name, reason, banned_by, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?);")) {
+                "REPLACE INTO bans (`uuid`, `name`, `reason`, `banned_by`, `expires_at`, `created_at`) VALUES (?, ?, ?, ?, ?, ?);")) {
             stmt.setString(1, uuid.toString());
             stmt.setString(2, name);
             stmt.setString(3, reason);
@@ -104,6 +117,7 @@ public class BanCommand {
             stmt.setLong(6, System.currentTimeMillis());
             stmt.executeUpdate();
         } catch (SQLException e) {
+            System.err.println("Failed to ban player " + name + ": " + e.getMessage());
             e.printStackTrace();
         }
     }
