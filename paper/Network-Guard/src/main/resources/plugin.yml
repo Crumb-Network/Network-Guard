@@ -21,6 +21,9 @@ permissions:
   nwguard.mute:
     description: Allows muting players
     default: op
+  nwguard.unmute:
+    description: Allows unmuting players
+    default: op
   nwguard.help:
     description: Allows access to the help command
     default: op

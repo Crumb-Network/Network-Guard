@@ -3,10 +3,7 @@ package me.kalbskinder.networkGuard;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
-import me.kalbskinder.networkGuard.commands.BanCommand;
-import me.kalbskinder.networkGuard.commands.MainCommand;
-import me.kalbskinder.networkGuard.commands.MuteCommand;
-import me.kalbskinder.networkGuard.commands.UnbanCommand;
+import me.kalbskinder.networkGuard.commands.*;
 import me.kalbskinder.networkGuard.database.DatabaseManager;
 import me.kalbskinder.networkGuard.listeners.ChatListener;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -75,6 +72,9 @@ public final class NetworkGuard extends JavaPlugin {
 
             MuteCommand muteCommand = new MuteCommand();
             commands.register(muteCommand.getCommand().build(), "Mute a player on the server");
+
+            UnmuteCommand unmuteCommand = new UnmuteCommand();
+            commands.register(unmuteCommand.getCommand().build(), "Unmute a player on the server");
         });
     }
 
@@ -85,9 +85,6 @@ public final class NetworkGuard extends JavaPlugin {
     @Override
     public void onDisable() {
         // Plugin shutdown logic
-        if (databaseManager != null) {
-            databaseManager.close();
-        }
     }
 
     // ===============

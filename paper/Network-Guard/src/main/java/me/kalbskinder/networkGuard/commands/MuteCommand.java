@@ -3,6 +3,7 @@ package me.kalbskinder.networkGuard.commands;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import me.kalbskinder.networkGuard.NetworkGuard;
@@ -10,6 +11,7 @@ import me.kalbskinder.networkGuard.database.DatabaseManager;
 import me.kalbskinder.networkGuard.util.TimeUtil;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
@@ -44,65 +46,54 @@ public class MuteCommand {
                                             REASONS.forEach(builder::suggest);
                                             return builder.buildFuture();
                                         })
-                                        .executes(this::executeMute)
+                                        .executes(ctx -> executeMute(ctx, true, true))
                                 )
-                                .executes(this::executeMute)
+                                .executes(ctx -> executeMute(ctx, true, false))
                         )
-                        .executes(this::executeMute)
-                );
+                        .executes(ctx -> executeMute(ctx, false, false))
+                )
+                .executes(ctx -> {
+                    ctx.getSource().getSender().sendMessage(mm.deserialize("<yellow>Usage: /mute <player> [duration] [reason]"));
+                    return 0;
+                });
     }
 
-    private int executeMute(com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx) {
+    private int executeMute(CommandContext<CommandSourceStack> ctx, boolean hasDuration, boolean hasReason) {
         CommandSender source = ctx.getSource().getSender();
         String playerName = StringArgumentType.getString(ctx, "player");
-        String duration = ctx.getArgument("duration", String.class) != null
-                ? StringArgumentType.getString(ctx, "duration")
-                : "30d";
-        String reason = ctx.getArgument("reason", String.class) != null
-                ? StringArgumentType.getString(ctx, "reason")
-                : "No reason specified";
 
-        Player target = Bukkit.getPlayerExact(playerName);
-        if (target == null) {
-            source.sendMessage(mm.deserialize("<red>Player not found!"));
+        String duration = hasDuration ? StringArgumentType.getString(ctx, "duration") : "30d";
+        String reason = hasReason ? StringArgumentType.getString(ctx, "reason") : "No reason specified";
+
+        OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(playerName);
+        if (offlinePlayer == null || (offlinePlayer.getName() == null && !offlinePlayer.hasPlayedBefore())) {
+            source.sendMessage(mm.deserialize("<red>Player not found or never joined before!"));
             return 0;
         }
 
-        // Permission level check (skip for Console)
+        UUID targetUUID = offlinePlayer.getUniqueId();
+
         if (source instanceof Player playerSource) {
             int sourceLevel = getPermissionLevel(playerSource.getUniqueId());
-            int targetLevel = getPermissionLevel(target.getUniqueId());
+            int targetLevel = getPermissionLevel(targetUUID);
             if (sourceLevel <= targetLevel) {
                 source.sendMessage(mm.deserialize("<red>You cannot mute a player with equal or higher permission level!"));
                 return 0;
             }
         }
 
-        String actorName = source instanceof Player playerSource
-                ? playerSource.getName()
-                : "Console";
+        String actorName = source instanceof Player p ? p.getName() : "Console";
 
-        mutePlayer(target.getUniqueId(), playerName, reason, actorName, TimeUtil.parseDuration(duration));
-        source.sendMessage(mm.deserialize("<green>Player <yellow>" + playerName + "<green> has been muted for <yellow>" + duration + "<green>. Reason: <yellow>" + reason));
+        mutePlayer(targetUUID, playerName, reason, actorName, TimeUtil.parseDuration(duration));
+
+        source.sendMessage(mm.deserialize(
+                "<green>Player <yellow>" + playerName + "<green> has been muted for <yellow>" + duration +
+                        "<green>. Reason: <yellow>" + reason
+        ));
 
         return Command.SINGLE_SUCCESS;
     }
 
-    private int getPermissionLevel(UUID uuid) {
-        try (PreparedStatement stmt = db.getConnection().prepareStatement(
-                "SELECT `permission_level` FROM staff_levels WHERE `uuid` = ?;")) {
-            stmt.setString(1, uuid.toString());
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getInt("permission_level");
-                }
-            }
-        } catch (SQLException e) {
-            System.err.println("Failed to get permission level for UUID " + uuid + ": " + e.getMessage());
-            e.printStackTrace();
-        }
-        return 0; // Default level for players not in staff_levels
-    }
 
     private void mutePlayer(UUID uuid, String name, String reason, String mutedBy, long durationMillis) {
         try (PreparedStatement stmt = db.getConnection().prepareStatement(
@@ -120,5 +111,21 @@ public class MuteCommand {
             System.err.println("Failed to mute player " + name + ": " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    private static int getPermissionLevel(UUID uuid) {
+        try (PreparedStatement stmt = db.getConnection().prepareStatement(
+                "SELECT permission_level FROM staff_levels WHERE uuid = ?;")) {
+            stmt.setString(1, uuid.toString());
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("permission_level");
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Failed to get permission level for UUID " + uuid + ": " + e.getMessage());
+            e.printStackTrace();
+        }
+        return 0; // Default level for players not in staff_levels
     }
 }

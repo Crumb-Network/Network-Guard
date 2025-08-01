@@ -18,25 +18,29 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.UUID;
 
-public class UnbanCommand {
+public class UnmuteCommand {
     private static final DatabaseManager db = NetworkGuard.getDatabaseManager();
     private final MiniMessage mm = MiniMessage.miniMessage();
 
     public LiteralArgumentBuilder<CommandSourceStack> getCommand() {
-        return Commands.literal("unban")
-                .requires(source -> source.getExecutor() != null && source.getExecutor().hasPermission("nwguard.unban"))
+        return Commands.literal("unmute")
+                .requires(source -> source.getExecutor() != null && source.getExecutor().hasPermission("nwguard.unmute"))
                 .then(Commands.argument("player", StringArgumentType.word())
                         .suggests((context, builder) -> {
                             Bukkit.getOnlinePlayers().forEach(player -> builder.suggest(player.getName()));
                             return builder.buildFuture();
                         })
-                        .executes(this::executeUnban)
+                        .executes(this::executeUnmute)
                 );
     }
 
-    private int executeUnban(com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx) {
+    private int executeUnmute(com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx) {
         CommandSender source = ctx.getSource().getSender();
         String playerName = StringArgumentType.getString(ctx, "player");
+        if (playerName == null) {
+            source.sendMessage("/unban <player>");
+            return 0;
+        }
 
         OfflinePlayer target = Bukkit.getOfflinePlayer(playerName);
         if (!target.hasPlayedBefore() && !target.isOnline()) {
@@ -46,9 +50,9 @@ public class UnbanCommand {
 
         UUID targetUUID = target.getUniqueId();
 
-        // Check if the player is banned
-        if (!isBanned(targetUUID)) {
-            source.sendMessage(mm.deserialize("<red>Player '" + playerName + "' is not banned!"));
+        // Check if the player is muted
+        if (!isMuted(targetUUID)) {
+            source.sendMessage(mm.deserialize("<red>Player '" + playerName + "' is not muted!"));
             return 0;
         }
 
@@ -57,38 +61,40 @@ public class UnbanCommand {
             int sourceLevel = getPermissionLevel(playerSource.getUniqueId());
             int targetLevel = getPermissionLevel(targetUUID);
             if (sourceLevel <= targetLevel) {
-                source.sendMessage(mm.deserialize("<red>You cannot unban a player with equal or higher permission level!"));
+                source.sendMessage(mm.deserialize("<red>You cannot unmute a player with equal or higher permission level!"));
                 return 0;
             }
         }
 
-        // Unban the player
-        unbanPlayer(targetUUID, playerName);
-        source.sendMessage(mm.deserialize("<green>Player <yellow>" + playerName + "<green> has been unbanned."));
+        // Unmute the player
+        unmutePlayer(targetUUID, playerName);
+        source.sendMessage(mm.deserialize("<green>Player <yellow>" + playerName + "<green> has been unmuted."));
 
         return Command.SINGLE_SUCCESS;
     }
 
-    private void unbanPlayer(UUID uuid, String name) {
+    private void unmutePlayer(UUID uuid, String name) {
         try (PreparedStatement stmt = db.getConnection().prepareStatement(
-                "DELETE FROM bans WHERE `uuid` = ?;")) {
+                "DELETE FROM mutes WHERE `uuid` = ?;")) {
             stmt.setString(1, uuid.toString());
             stmt.executeUpdate();
+            // Remove from mute cache
+            NetworkGuard.getMuteCache().remove(uuid);
         } catch (SQLException e) {
-            System.err.println("Failed to unban player " + name + ": " + e.getMessage());
+            System.err.println("Failed to unmute player " + name + ": " + e.getMessage());
             e.printStackTrace();
         }
     }
 
-    public boolean isBanned(UUID uuid) {
+    public boolean isMuted(UUID uuid) {
         try (PreparedStatement stmt = db.getConnection().prepareStatement(
-                "SELECT `uuid` FROM bans WHERE `uuid` = ?;")) {
+                "SELECT `uuid` FROM mutes WHERE `uuid` = ?;")) {
             stmt.setString(1, uuid.toString());
             try (ResultSet rs = stmt.executeQuery()) {
                 return rs.next();
             }
         } catch (SQLException e) {
-            System.err.println("Failed to check ban status for UUID " + uuid + ": " + e.getMessage());
+            System.err.println("Failed to check mute status for UUID " + uuid + ": " + e.getMessage());
             e.printStackTrace();
             return false;
         }
